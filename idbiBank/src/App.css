@@ -56,6 +56,84 @@
   gap: 12px;
 }
 
+.ui-snackbar {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 100;
+  width: min(100vw - 32px, 360px);
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
+  box-sizing: border-box;
+  animation: snackbar-slide-in 0.24s ease;
+}
+
+.ui-snackbar__message {
+  font-size: 0.92rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.ui-snackbar__close {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ui-snackbar__close:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.ui-snackbar--success {
+  background: #e9f9ef;
+  color: #1f7a3e;
+}
+
+.ui-snackbar--danger {
+  background: #feeceb;
+  color: #ba3d35;
+}
+
+.ui-snackbar--warning {
+  background: #fff7df;
+  color: #9a6a06;
+}
+
+.ui-snackbar--info {
+  background: #eaf4ff;
+  color: #1c5fa8;
+}
+
+@keyframes snackbar-slide-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -10px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .login-form__hint {
   margin: 0 0 16px;
   color: #5f6b73;
@@ -1110,6 +1188,13 @@
 }
 
 @media (max-width: 640px) {
+  .ui-snackbar {
+    top: 14px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+  }
+
   .login-page {
     padding: 14px 14px 20px;
   }

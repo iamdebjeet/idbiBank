@@ -3,13 +3,19 @@ import { Button } from '../components/ui/Button'
 import { authConfig } from '../config/authConfig'
 import { Checkbox } from '../components/ui/Checkbox'
 import { PasswordInput } from '../components/ui/PasswordInput'
+import { Snackbar } from '../components/ui/Snackbar'
 import { TextInput } from '../components/ui/TextInput'
 
 const IDBI_LOGO_URL = 'https://www.idbi.bank.in/assets/images/IDBI_Logo.jpg'
 
 export function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
-  const [submitError, setSubmitError] = useState('')
+  const [snackbarState, setSnackbarState] = useState({
+    open: false,
+    message: '',
+    autoClose: false,
+    colorType: 'danger',
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formValues, setFormValues] = useState({
     username: '',
@@ -50,12 +56,21 @@ export function LoginPage({ onLogin }) {
       return
     }
 
-    setSubmitError('')
+    setSnackbarState((current) => ({
+      ...current,
+      open: false,
+      message: '',
+    }))
     setIsSubmitting(true)
 
     Promise.resolve(onLogin?.(formValues))
       .catch((error) => {
-        setSubmitError(error?.message ?? 'Unable to login. Please try again.')
+        setSnackbarState({
+          open: true,
+          message: error?.message ?? 'Unable to login. Please try again.',
+          autoClose: false,
+          colorType: 'danger',
+        })
       })
       .finally(() => {
         setIsSubmitting(false)
@@ -64,6 +79,19 @@ export function LoginPage({ onLogin }) {
 
   return (
     <main className="login-page">
+      <Snackbar
+        open={snackbarState.open}
+        message={snackbarState.message}
+        autoClose={snackbarState.autoClose}
+        colorType={snackbarState.colorType}
+        onClose={() =>
+          setSnackbarState((current) => ({
+            ...current,
+            open: false,
+          }))
+        }
+      />
+
       <div className="login-page__glow" aria-hidden="true" />
 
       <section className="login-card" aria-label="Login form">
@@ -112,8 +140,6 @@ export function LoginPage({ onLogin }) {
                 <small className="ui-field__error">{errors.password}</small>
               ) : null}
             </div>
-
-            {submitError ? <div className="login-form__error">{submitError}</div> : null}
 
             <Button type="submit" disabled={!isFormValid || isSubmitting}>
               {isSubmitting ? 'Logging in...' : 'Log in'}

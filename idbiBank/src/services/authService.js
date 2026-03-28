@@ -53,7 +53,7 @@ async function getOidcConfiguration() {
   if (!oidcConfigPromise) {
     oidcConfigPromise = fetch(authConfig.discoveryUrl, {
       headers: {
-        Accept: 'application/json',
+        Accept: 'application/jwk-set+json, application/json',
       },
     })
       .then(async (response) => {
@@ -180,18 +180,16 @@ function buildLoginRequestBody({ username, password }) {
   const requestBody = new URLSearchParams({
     grant_type: authConfig.grantType,
     client_id: authConfig.clientId,
+    redirect_uri: authConfig.redirectUrl,
+    scope: getScopeValue(),
   })
 
   if (authConfig.grantType === 'authorization_code') {
-    requestBody.set('redirect_uri', authConfig.redirectUrl)
-    requestBody.set('code', authConfig.authorizationCode)
-    requestBody.set('code_verifier', authConfig.codeVerifier)
     return requestBody
   }
 
   requestBody.set('username', username)
   requestBody.set('password', password)
-  requestBody.set('scope', getScopeValue())
   return requestBody
 }
 
