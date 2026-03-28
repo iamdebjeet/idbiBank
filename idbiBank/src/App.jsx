@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/portal/DashboardPage'
 import { LanguageUpdatePage } from './pages/portal/LanguageUpdatePage'
 import { PortalLayout } from './pages/portal/PortalLayout'
+import { QrDetailsPage } from './pages/portal/QrDetailsPage'
 import { ReportsPage } from './pages/portal/ReportsPage'
 import { getAuthSession } from './services/authStorage'
 import { loginWithPassword, logout as logoutUser } from './services/authService'
@@ -65,6 +66,10 @@ function App() {
         <Route
           path="/reports"
           element={<ReportsPage />}
+        />
+        <Route
+          path="/qr-details"
+          element={<QrDetailsPage />}
         />
       </Route>
 

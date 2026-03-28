@@ -32,10 +32,22 @@ function ReportsIcon() {
   )
 }
 
+function QrIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 4h6v6H4Z" />
+      <path d="M14 4h6v6h-6Z" />
+      <path d="M4 14h6v6H4Z" />
+      <path d="M14 14h2M18 14h2M14 18h6M17 14v6" />
+    </svg>
+  )
+}
+
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon, end: true },
   { to: '/language-update', label: 'Language Update', icon: LanguageIcon },
   { to: '/reports', label: 'Reports', icon: ReportsIcon },
+  { to: '/qr-details', label: 'QR Details', icon: QrIcon },
 ]
 
 export function PortalSidebar({ isCollapsed }) {
