@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import { authConfig } from '../config/authConfig'
 import { Checkbox } from '../components/ui/Checkbox'
 import { PasswordInput } from '../components/ui/PasswordInput'
 import { TextInput } from '../components/ui/TextInput'
@@ -8,19 +9,24 @@ const IDBI_LOGO_URL = 'https://www.idbi.bank.in/assets/images/IDBI_Logo.jpg'
 
 export function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formValues, setFormValues] = useState({
     username: '',
     password: '',
     rememberDevice: false,
   })
   const [touched, setTouched] = useState({})
+  const isAuthorizationCodeFlow = authConfig.grantType === 'authorization_code'
 
   const errors = useMemo(
     () => ({
-      username: formValues.username.trim() ? '' : 'Username is required.',
-      password: formValues.password.trim() ? '' : 'Password is required.',
+      username:
+        isAuthorizationCodeFlow || formValues.username.trim() ? '' : 'Username is required.',
+      password:
+        isAuthorizationCodeFlow || formValues.password.trim() ? '' : 'Password is required.',
     }),
-    [formValues.password, formValues.username],
+    [formValues.password, formValues.username, isAuthorizationCodeFlow],
   )
 
   const isFormValid = Object.values(errors).every((value) => !value)
@@ -44,7 +50,16 @@ export function LoginPage({ onLogin }) {
       return
     }
 
-    onLogin?.()
+    setSubmitError('')
+    setIsSubmitting(true)
+
+    Promise.resolve(onLogin?.(formValues))
+      .catch((error) => {
+        setSubmitError(error?.message ?? 'Unable to login. Please try again.')
+      })
+      .finally(() => {
+        setIsSubmitting(false)
+      })
   }
 
   return (
@@ -56,6 +71,12 @@ export function LoginPage({ onLogin }) {
           <img className="login-card__logo" src={IDBI_LOGO_URL} alt="IDBI Bank" />
 
           <h1 className="login-card__title">Login to your Account</h1>
+
+          {isAuthorizationCodeFlow ? (
+            <p className="login-form__hint">
+              Login will exchange the configured authorization code for an access token.
+            </p>
+          ) : null}
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="ui-field">
@@ -92,8 +113,10 @@ export function LoginPage({ onLogin }) {
               ) : null}
             </div>
 
-            <Button type="submit" disabled={!isFormValid}>
-              Log in
+            {submitError ? <div className="login-form__error">{submitError}</div> : null}
+
+            <Button type="submit" disabled={!isFormValid || isSubmitting}>
+              {isSubmitting ? 'Logging in...' : 'Log in'}
             </Button>
 
             <div className="login-form__meta">

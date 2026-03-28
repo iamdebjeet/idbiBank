@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import './App.css'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/portal/DashboardPage'
 import { LanguageUpdatePage } from './pages/portal/LanguageUpdatePage'
 import { PortalLayout } from './pages/portal/PortalLayout'
-import { PortalContentPage } from './pages/portal/PortalContentPage'
 import { ReportsPage } from './pages/portal/ReportsPage'
+import { getAuthSession } from './services/authStorage'
+import { loginWithPassword, logout as logoutUser } from './services/authService'
 
 function ProtectedRoute({ isLoggedIn, children }) {
   if (!isLoggedIn) {
@@ -18,20 +19,18 @@ function ProtectedRoute({ isLoggedIn, children }) {
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return window.localStorage.getItem('idbi-auth') === 'true'
+    return Boolean(getAuthSession()?.accessToken)
   })
   const navigate = useNavigate()
 
-  useEffect(() => {
-    window.localStorage.setItem('idbi-auth', isLoggedIn ? 'true' : 'false')
-  }, [isLoggedIn])
-
-  const handleLogin = () => {
+  const handleLogin = async (credentials) => {
+    await loginWithPassword(credentials)
     setIsLoggedIn(true)
     navigate('/dashboard')
   }
 
   const handleLogout = () => {
+    logoutUser()
     setIsLoggedIn(false)
     navigate('/login')
   }
