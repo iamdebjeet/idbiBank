@@ -15,7 +15,7 @@ const defaultScopes = [
 export const authConfig = {
   issuer:
     import.meta.env.VITE_AUTH_ISSUER ??
-    'https://idbi-auth-stage.isupay.in/application/o/merchant-application/',
+    'https://idbi-auth-stage.isupay.in/application/o/idbi/',
   discoveryUrl:
     import.meta.env.VITE_AUTH_DISCOVERY_URL ??
     'https://idbi-auth-stage.isupay.in/application/o/idbi/.well-known/openid-configuration',
@@ -33,6 +33,7 @@ export const authConfig = {
     '10b29de25e864910be0c547dfe2530f259ec09474cb94b97ad2c5e23586ab98e8398b3424977425b8b8eb838e217f3e9',
   dangerouslyAllowInsecureHttpRequests:
     import.meta.env.VITE_AUTH_ALLOW_INSECURE_HTTP === 'true',
+  useStaticAuth: import.meta.env.VITE_USE_STATIC_AUTH === 'true',
   useMockAuth: import.meta.env.VITE_USE_MOCK_AUTH === 'true',
   scopes: import.meta.env.VITE_AUTH_SCOPES?.split(',').map((value) => value.trim()).filter(Boolean) ??
     defaultScopes,

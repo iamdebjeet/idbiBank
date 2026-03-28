@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
+import { Snackbar } from '../ui/Snackbar'
+import { apiConfig } from '../../config/apiConfig'
+import { apiRequest } from '../../services/apiClient'
 
 function LogoutIcon() {
   return (
@@ -41,6 +44,14 @@ function MenuIcon() {
 export function PortalTopNav({ isSidebarCollapsed, onToggleSidebar, onLogout }) {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [isProfileDetailsOpen, setIsProfileDetailsOpen] = useState(false)
+  const [isFetchingProfileDetails, setIsFetchingProfileDetails] = useState(false)
+  const [profileDetails, setProfileDetails] = useState(null)
+  const [snackbarState, setSnackbarState] = useState({
+    open: false,
+    message: '',
+    autoClose: true,
+    colorType: 'danger',
+  })
   const profileMenuRef = useRef(null)
 
   useEffect(() => {
@@ -65,9 +76,53 @@ export function PortalTopNav({ isSidebarCollapsed, onToggleSidebar, onLogout }) 
     }
   }, [])
 
-  const handleViewDetails = () => {
+  const formatLabel = (value) => {
+    return value
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
+  }
+
+  const getDisplayEntries = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return []
+    }
+
+    return Object.entries(value).filter(([, entryValue]) => {
+      return typeof entryValue !== 'object' || entryValue === null
+    })
+  }
+
+  const detailSource =
+    profileDetails?.data && typeof profileDetails.data === 'object' ? profileDetails.data : profileDetails
+  const detailEntries = getDisplayEntries(detailSource)
+
+  const handleViewDetails = async () => {
     setIsProfileMenuOpen(false)
-    setIsProfileDetailsOpen(true)
+    setIsFetchingProfileDetails(true)
+
+    try {
+      const response = await apiRequest(apiConfig.fetchUserDetailsEndpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          serial_number: apiConfig.userDetailsSerialNumber,
+        }),
+      })
+
+      console.log('[Profile Details] fetchById response', response)
+      setProfileDetails(response)
+      setIsProfileDetailsOpen(true)
+    } catch (error) {
+      console.error('[Profile Details] Failed to fetch user details', error)
+      setSnackbarState({
+        open: true,
+        message: 'Failed to fetch userdetails',
+        autoClose: true,
+        colorType: 'danger',
+      })
+    } finally {
+      setIsFetchingProfileDetails(false)
+    }
   }
 
   const handleLogout = () => {
@@ -77,6 +132,19 @@ export function PortalTopNav({ isSidebarCollapsed, onToggleSidebar, onLogout }) 
 
   return (
     <header className="portal-topnav">
+      <Snackbar
+        open={snackbarState.open}
+        message={snackbarState.message}
+        autoClose={snackbarState.autoClose}
+        colorType={snackbarState.colorType}
+        onClose={() =>
+          setSnackbarState((current) => ({
+            ...current,
+            open: false,
+          }))
+        }
+      />
+
       <button
         className="portal-icon-button"
         type="button"
@@ -114,8 +182,9 @@ export function PortalTopNav({ isSidebarCollapsed, onToggleSidebar, onLogout }) 
               type="button"
               role="menuitem"
               onClick={handleViewDetails}
+              disabled={isFetchingProfileDetails}
             >
-              <span>View Details</span>
+              <span>{isFetchingProfileDetails ? 'Loading...' : 'View Details'}</span>
               <KeyIcon />
             </button>
 
@@ -146,40 +215,22 @@ export function PortalTopNav({ isSidebarCollapsed, onToggleSidebar, onLogout }) 
 
             <div className="profile-details-modal__body">
               <section className="profile-details-section">
-                <h3>Basic Information</h3>
+                <h3>Fetched User Details</h3>
 
                 <div className="profile-details-grid">
-                  <span>Name</span>
-                  <strong>Stebin Ben</strong>
-                  <span>Phone</span>
-                  <strong>+91 9388239231</strong>
-                </div>
-              </section>
-
-              <section className="profile-details-section">
-                <h3>Device Information</h3>
-
-                <div className="profile-details-grid">
-                  <span>Device Serial Number</span>
-                  <strong>456894659876857</strong>
-                  <span>Linked Account Number</span>
-                  <strong>XXXXXX6857</strong>
-                  <span>UPI ID</span>
-                  <strong>rudranhi.panigrahi@cbin</strong>
-                  <span>IFSC Code</span>
-                  <strong>CBI0283896</strong>
-                  <span>Device Model Name</span>
-                  <strong>MoreFun ET389</strong>
-                  <span>Device Mobile Number</span>
-                  <strong>+91 8988239231</strong>
-                  <span>Network Type</span>
-                  <strong>BSNL</strong>
-                  <span>Device Status</span>
-                  <strong>Active</strong>
-                  <span>Battery Percentage</span>
-                  <strong>60%</strong>
-                  <span>Network Strength</span>
-                  <strong>Strong</strong>
+                  {detailEntries.length ? (
+                    detailEntries.map(([key, value]) => (
+                      <div className="profile-details-grid__pair" key={key}>
+                        <span key={`${key}-label`}>{formatLabel(key)}</span>
+                        <strong key={`${key}-value`}>{String(value ?? '-')}</strong>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="profile-details-grid__pair">
+                      <span>Message</span>
+                      <strong>No user details available.</strong>
+                    </div>
+                  )}
                 </div>
               </section>
             </div>

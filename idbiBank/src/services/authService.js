@@ -1,7 +1,7 @@
 import { authConfig, authStorageKeys } from '../config/authConfig'
+import { getStaticAuthorizationHeader } from '../config/apiConfig'
 import { clearAuthSession, getAuthSession, saveAuthSession } from './authStorage'
-
-let oidcConfigPromise = null
+import { getOidcEndpoint } from './oidcDiscovery'
 
 function encodeBase64Url(value) {
   return window
@@ -45,41 +45,8 @@ function getTokenUrl() {
   )
 }
 
-async function getOidcConfiguration() {
-  if (!authConfig.discoveryUrl) {
-    return null
-  }
-
-  if (!oidcConfigPromise) {
-    oidcConfigPromise = fetch(authConfig.discoveryUrl, {
-      headers: {
-        Accept: 'application/jwk-set+json, application/json',
-      },
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          const parsedError = await parseErrorResponse(response)
-          throw new Error(
-            parsedError.details
-              ? `${parsedError.message} | ${JSON.stringify(parsedError.details)}`
-              : parsedError.message,
-          )
-        }
-
-        return response.json()
-      })
-      .catch((error) => {
-        oidcConfigPromise = null
-        throw error
-      })
-  }
-
-  return oidcConfigPromise
-}
-
 async function resolveTokenUrl() {
-  const oidcConfig = await getOidcConfiguration()
-  return oidcConfig?.token_endpoint || getTokenUrl()
+  return getOidcEndpoint('token_endpoint', getTokenUrl())
 }
 
 function buildTokenExpiry(expiresInSeconds) {
@@ -136,6 +103,25 @@ function buildMockSession({ username, rememberDevice }) {
     expiresIn,
     accessTokenExpirationDate: new Date(expiresAt * 1000).toISOString(),
     tokenPayload,
+  }
+}
+
+function buildStaticSession({ rememberDevice }) {
+  const staticHeader = getStaticAuthorizationHeader()
+  const accessToken = staticHeader.Authorization?.replace(/^Bearer\s+/i, '') ?? ''
+
+  return {
+    accessToken,
+    refreshToken: '',
+    idToken: '',
+    tokenType: 'Bearer',
+    scope: getScopeValue(),
+    expiresIn: null,
+    accessTokenExpirationDate: null,
+    tokenPayload: {
+      auth_mode: 'static',
+      rememberDevice,
+    },
   }
 }
 
@@ -200,9 +186,16 @@ export async function loginWithPassword({ username, password, rememberDevice }) 
     return session
   }
 
+  if (authConfig.useStaticAuth) {
+    const session = buildStaticSession({ rememberDevice })
+    saveAuthSession(session, { persist: rememberDevice })
+    return session
+  }
+
   const requestBody = buildLoginRequestBody({ username, password })
   const tokenUrl = await resolveTokenUrl()
 
+  // Live token exchange is intentionally bypassed when VITE_USE_STATIC_AUTH=true.
   const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
@@ -240,6 +233,10 @@ export async function refreshAccessToken() {
   const currentSession = getAuthSession()
 
   if (!currentSession?.refreshToken) {
+    if (authConfig.useStaticAuth && currentSession?.accessToken) {
+      return currentSession.accessToken
+    }
+
     throw new Error('No refresh token found in storage.')
   }
 
@@ -311,7 +308,7 @@ export function getAuthorizationHeader() {
   const session = getAuthSession()
 
   if (!session?.accessToken) {
-    return {}
+    return getStaticAuthorizationHeader()
   }
 
   return {

@@ -1,4 +1,5 @@
 import { getAuthorizationHeader, refreshAccessToken } from './authService'
+import { apiConfig, getStaticPassKeyHeader } from '../config/apiConfig'
 
 async function parseJsonSafely(response) {
   const contentType = response.headers.get('content-type') ?? ''
@@ -13,8 +14,13 @@ async function parseJsonSafely(response) {
 async function buildRequestOptions(options = {}) {
   const headers = new Headers(options.headers ?? {})
   const authHeader = getAuthorizationHeader()
+  const passKeyHeader = getStaticPassKeyHeader()
 
   Object.entries(authHeader).forEach(([key, value]) => {
+    headers.set(key, value)
+  })
+
+  Object.entries(passKeyHeader).forEach(([key, value]) => {
     headers.set(key, value)
   })
 
@@ -30,7 +36,9 @@ async function buildRequestOptions(options = {}) {
 
 export async function apiRequest(url, options = {}) {
   let requestOptions = await buildRequestOptions(options)
-  let response = await fetch(url, requestOptions)
+  const requestUrl =
+    apiConfig.baseUrl && !/^https?:\/\//.test(url) ? `${apiConfig.baseUrl}${url}` : url
+  let response = await fetch(requestUrl, requestOptions)
 
   if (response.status === 401) {
     try {
@@ -42,7 +50,7 @@ export async function apiRequest(url, options = {}) {
           Authorization: `Bearer ${freshAccessToken}`,
         },
       })
-      response = await fetch(url, requestOptions)
+      response = await fetch(requestUrl, requestOptions)
     } catch {
       // If refresh fails we return the original 401 response flow to the caller.
     }
