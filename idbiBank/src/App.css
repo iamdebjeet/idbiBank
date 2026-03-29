@@ -1119,6 +1119,17 @@
   width: 100%;
 }
 
+.reports-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: #5f6c75;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 .reports-table-wrapper {
   overflow-x: auto;
 }
@@ -1158,6 +1169,11 @@
 
 .reports-table__status--failed {
   color: #db6b6b !important;
+}
+
+.reports-table__empty {
+  text-align: center !important;
+  color: #79858d !important;
 }
 
 .reports-table-card__footer {
@@ -1344,6 +1360,15 @@
   border: 5px solid #214c9c;
   outline: 3px solid #d54a44;
   outline-offset: 0;
+  padding: 12px;
+}
+
+.qr-ticket__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  object-fit: contain;
 }
 
 .qr-ticket__bank-header {
@@ -1606,7 +1631,8 @@
 
   .reports-input-group,
   .reports-input-group--wide,
-  .reports-search {
+  .reports-search,
+  .reports-summary {
     max-width: none;
     min-width: 100%;
     width: 100%;

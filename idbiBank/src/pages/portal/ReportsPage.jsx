@@ -1,53 +1,278 @@
 import { useEffect, useMemo, useState } from 'react'
+import { authStorageKeys } from '../../config/authConfig'
+import { apiConfig } from '../../config/apiConfig'
+import { LoaderOverlay } from '../../components/ui/LoaderOverlay'
+import { Snackbar } from '../../components/ui/Snackbar'
 
 const monthlyOptions = [
-  'Last month report',
-  'Last three months report',
-  'Last 6 months report',
-  'Last 9 months report',
-  'Last 12 months report',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ]
 
-const reportRows = [
-  { id: 1, transactionId: 'TXN20260001', amount: '10,000', date: '24/02/2026, 12:23 PM', status: 'Received' },
-  { id: 2, transactionId: 'TXN20260002', amount: '12,500', date: '24/02/2026, 01:14 PM', status: 'Received' },
-  { id: 3, transactionId: 'TXN20260003', amount: '8,900', date: '25/02/2026, 09:42 AM', status: 'Pending' },
-  { id: 4, transactionId: 'TXN20260004', amount: '15,200', date: '25/02/2026, 03:11 PM', status: 'Received' },
-  { id: 5, transactionId: 'TXN20260005', amount: '18,000', date: '26/02/2026, 10:18 AM', status: 'Failed' },
-  { id: 6, transactionId: 'TXN20260006', amount: '11,400', date: '26/02/2026, 05:36 PM', status: 'Received' },
-  { id: 7, transactionId: 'TXN20260007', amount: '7,250', date: '27/02/2026, 08:20 AM', status: 'Pending' },
-  { id: 8, transactionId: 'TXN20260008', amount: '9,875', date: '27/02/2026, 11:09 AM', status: 'Received' },
-  { id: 9, transactionId: 'TXN20260009', amount: '14,650', date: '27/02/2026, 04:55 PM', status: 'Received' },
-  { id: 10, transactionId: 'TXN20260010', amount: '6,300', date: '28/02/2026, 09:10 AM', status: 'Failed' },
-  { id: 11, transactionId: 'TXN20260011', amount: '13,999', date: '28/02/2026, 02:47 PM', status: 'Received' },
-  { id: 12, transactionId: 'TXN20260012', amount: '10,750', date: '01/03/2026, 10:02 AM', status: 'Pending' },
-  { id: 13, transactionId: 'TXN20260013', amount: '16,100', date: '01/03/2026, 01:31 PM', status: 'Received' },
-  { id: 14, transactionId: 'TXN20260014', amount: '9,300', date: '01/03/2026, 05:40 PM', status: 'Received' },
-  { id: 15, transactionId: 'TXN20260015', amount: '20,000', date: '02/03/2026, 09:25 AM', status: 'Received' },
-  { id: 16, transactionId: 'TXN20260016', amount: '5,800', date: '02/03/2026, 12:16 PM', status: 'Pending' },
-  { id: 17, transactionId: 'TXN20260017', amount: '7,990', date: '02/03/2026, 04:04 PM', status: 'Received' },
-  { id: 18, transactionId: 'TXN20260018', amount: '13,250', date: '03/03/2026, 08:48 AM', status: 'Received' },
-  { id: 19, transactionId: 'TXN20260019', amount: '17,450', date: '03/03/2026, 11:52 AM', status: 'Failed' },
-  { id: 20, transactionId: 'TXN20260020', amount: '12,000', date: '03/03/2026, 03:27 PM', status: 'Received' },
-  { id: 21, transactionId: 'TXN20260021', amount: '8,450', date: '04/03/2026, 10:08 AM', status: 'Pending' },
-  { id: 22, transactionId: 'TXN20260022', amount: '19,999', date: '04/03/2026, 01:20 PM', status: 'Received' },
-  { id: 23, transactionId: 'TXN20260023', amount: '10,600', date: '04/03/2026, 05:15 PM', status: 'Received' },
-  { id: 24, transactionId: 'TXN20260024', amount: '11,250', date: '05/03/2026, 09:39 AM', status: 'Failed' },
+const reportColumns = [
+  { key: 'Account_Number', label: 'Account Number' },
+  { key: 'VPA_ID', label: 'VPA ID' },
+  { key: 'Date_&_Time', label: 'Date & Time' },
+  { key: 'Transaction_Amount', label: 'Transaction Amount' },
+  { key: 'Transaction_Id', label: 'Transaction ID' },
+  { key: 'RRN', label: 'RRN' },
 ]
 
-function getStatusClass(status) {
-  if (status === 'Received') return 'reports-table__status reports-table__status--received'
-  if (status === 'Pending') return 'reports-table__status reports-table__status--pending'
-  return 'reports-table__status reports-table__status--failed'
+function formatDateForApi(dateValue) {
+  if (!dateValue) {
+    return ''
+  }
+
+  const [year, month, day] = dateValue.split('-')
+  if (!year || !month || !day) {
+    return ''
+  }
+
+  return `${day}/${month}/${year}`
+}
+
+function getTodayInputValue() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatInputDate(dateValue) {
+  const year = dateValue.getFullYear()
+  const month = String(dateValue.getMonth() + 1).padStart(2, '0')
+  const day = String(dateValue.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getMonthDateRange(monthName) {
+  const monthIndex = monthlyOptions.indexOf(monthName)
+
+  if (monthIndex < 0) {
+    return null
+  }
+
+  const today = new Date()
+  const currentYear = today.getFullYear()
+
+  return {
+    startDate: formatInputDate(new Date(currentYear, monthIndex, 1)),
+    endDate: formatInputDate(new Date(currentYear, monthIndex + 1, 0)),
+  }
+}
+
+function getStoredUserDetailsRecord() {
+  const storedUserDetails = window.sessionStorage.getItem(authStorageKeys.userDetails)
+
+  if (!storedUserDetails) {
+    return null
+  }
+
+  try {
+    const parsedUserDetails = JSON.parse(storedUserDetails)
+
+    if (Array.isArray(parsedUserDetails)) {
+      return parsedUserDetails[0] ?? null
+    }
+
+    if (parsedUserDetails?.data && Array.isArray(parsedUserDetails.data)) {
+      return parsedUserDetails.data[0] ?? null
+    }
+
+    return parsedUserDetails
+  } catch (error) {
+    console.error('[Reports] Failed to parse stored user details', error)
+    return null
+  }
+}
+
+function normalizeReportRows(rows) {
+  return Array.isArray(rows) ? rows : []
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  return error?.statusDescription || error?.message || fallbackMessage
+}
+
+function escapeExcelCell(value) {
+  const normalizedValue = String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+  return normalizedValue
+}
+
+function downloadReportRowsAsExcel(rows) {
+  if (!rows.length) {
+    return false
+  }
+
+  const tableHeaders = reportColumns
+    .map((column) => `<th>${escapeExcelCell(column.label)}</th>`)
+    .join('')
+
+  const tableRows = rows
+    .map(
+      (row) =>
+        `<tr>${reportColumns
+          .map((column) => `<td>${escapeExcelCell(row?.[column.key] ?? '-')}</td>`)
+          .join('')}</tr>`,
+    )
+    .join('')
+
+  const htmlContent = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+      <head>
+        <meta charset="UTF-8" />
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>${tableHeaders}</tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `
+
+  const blob = new Blob([htmlContent], {
+    type: 'application/vnd.ms-excel;charset=utf-8;',
+  })
+  const downloadUrl = window.URL.createObjectURL(blob)
+  const downloadLink = document.createElement('a')
+  downloadLink.href = downloadUrl
+  downloadLink.download = 'idbi-reports.xls'
+  document.body.appendChild(downloadLink)
+  downloadLink.click()
+  document.body.removeChild(downloadLink)
+  window.URL.revokeObjectURL(downloadUrl)
+  return true
+}
+
+async function fetchReports({ startDate, endDate, vpaId }) {
+  const response = await fetch(apiConfig.reportsQuerySubmitUserEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      startDate,
+      endDate,
+      vpa_id: vpaId,
+      mode: 'both',
+    }),
+  })
+
+  const responseData = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const error = new Error(
+      responseData?.statusDescription ||
+        responseData?.message ||
+        `API request failed with status ${response.status}`,
+    )
+    error.statusDescription = responseData?.statusDescription ?? ''
+    throw error
+  }
+
+  return responseData
 }
 
 export function ReportsPage() {
+  const todayInputValue = useMemo(() => getTodayInputValue(), [])
+  const currentMonthIndex = useMemo(() => new Date().getMonth(), [])
   const [filterType, setFilterType] = useState('custom')
   const [searchValue, setSearchValue] = useState('')
   const [monthlySelection, setMonthlySelection] = useState(monthlyOptions[0])
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [currentPage, setCurrentPage] = useState(1)
   const [goToPageInput, setGoToPageInput] = useState('1')
+  const [startDate, setStartDate] = useState(todayInputValue)
+  const [endDate, setEndDate] = useState(todayInputValue)
+  const [reportResponse, setReportResponse] = useState(null)
+  const [reportRows, setReportRows] = useState([])
+  const [isFetchingReports, setIsFetchingReports] = useState(false)
+  const [snackbarState, setSnackbarState] = useState({
+    open: false,
+    message: '',
+    autoClose: true,
+    colorType: 'danger',
+  })
+
+  const loadReports = async ({ nextStartDate, nextEndDate }) => {
+    const userDetailsRecord = getStoredUserDetailsRecord()
+    const vpaId = userDetailsRecord?.vpa_id ?? ''
+
+    if (!vpaId) {
+      setReportResponse(null)
+      setReportRows([])
+      setSnackbarState({
+        open: true,
+        message: 'Unable to fetch reports',
+        autoClose: true,
+        colorType: 'danger',
+      })
+      return
+    }
+
+    try {
+      setIsFetchingReports(true)
+
+      const response = await fetchReports({
+        startDate: formatDateForApi(nextStartDate),
+        endDate: formatDateForApi(nextEndDate),
+        vpaId,
+      })
+
+      console.log('[Reports] querysubmit_user response', response)
+      setReportResponse(response)
+      setReportRows(normalizeReportRows(response?.data))
+      setCurrentPage(1)
+      setGoToPageInput('1')
+    } catch (error) {
+      console.error('[Reports] Failed to fetch reports', error)
+      setReportResponse(null)
+      setReportRows([])
+      setSnackbarState({
+        open: true,
+        message: getErrorMessage(error, 'Unable to fetch reports'),
+        autoClose: true,
+        colorType: 'danger',
+      })
+    } finally {
+      setIsFetchingReports(false)
+    }
+  }
+
+  useEffect(() => {
+    if (filterType !== 'today') {
+      return
+    }
+
+    setStartDate(todayInputValue)
+    setEndDate(todayInputValue)
+    loadReports({
+      nextStartDate: todayInputValue,
+      nextEndDate: todayInputValue,
+    })
+  }, [filterType, todayInputValue])
 
   const filteredRows = useMemo(() => {
     const term = searchValue.trim().toLowerCase()
@@ -57,17 +282,15 @@ export function ReportsPage() {
     }
 
     return reportRows.filter((row) =>
-      [String(row.id), row.transactionId, row.amount, row.date, row.status].some((value) =>
-        value.toLowerCase().includes(term),
-      ),
+      reportColumns.some(({ key }) => String(row?.[key] ?? '').toLowerCase().includes(term)),
     )
-  }, [searchValue])
+  }, [reportRows, searchValue])
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / rowsPerPage))
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchValue, rowsPerPage])
+  }, [searchValue, rowsPerPage, reportRows])
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -118,8 +341,73 @@ export function ReportsPage() {
     handlePageChange(nextPage)
   }
 
+  const handleCustomSubmit = () => {
+    if (!startDate || !endDate) {
+      setSnackbarState({
+        open: true,
+        message: 'Select both start date and end date',
+        autoClose: true,
+        colorType: 'warning',
+      })
+      return
+    }
+
+    loadReports({
+      nextStartDate: startDate,
+      nextEndDate: endDate,
+    })
+  }
+
+  const handleMonthlySubmit = () => {
+    const monthDateRange = getMonthDateRange(monthlySelection)
+
+    if (!monthDateRange) {
+      setSnackbarState({
+        open: true,
+        message: 'Select a valid month',
+        autoClose: true,
+        colorType: 'warning',
+      })
+      return
+    }
+
+    setStartDate(monthDateRange.startDate)
+    setEndDate(monthDateRange.endDate)
+    loadReports({
+      nextStartDate: monthDateRange.startDate,
+      nextEndDate: monthDateRange.endDate,
+    })
+  }
+
+  const handleDownloadAll = () => {
+    const hasDownloaded = downloadReportRowsAsExcel(reportRows)
+
+    if (!hasDownloaded) {
+      setSnackbarState({
+        open: true,
+        message: 'No report data available to download',
+        autoClose: true,
+        colorType: 'warning',
+      })
+    }
+  }
+
   return (
     <section className="portal-section reports-page">
+      <LoaderOverlay open={isFetchingReports} text="IDBI Bank Loading........" />
+      <Snackbar
+        open={snackbarState.open}
+        message={snackbarState.message}
+        autoClose={snackbarState.autoClose}
+        colorType={snackbarState.colorType}
+        onClose={() =>
+          setSnackbarState((current) => ({
+            ...current,
+            open: false,
+          }))
+        }
+      />
+
       <h1 className="portal-section__title">Transaction Reports</h1>
 
       <div className="reports-filter-card">
@@ -166,8 +454,8 @@ export function ReportsPage() {
                   value={monthlySelection}
                   onChange={(event) => setMonthlySelection(event.target.value)}
                 >
-                  {monthlyOptions.map((option) => (
-                    <option key={option} value={option}>
+                  {monthlyOptions.map((option, index) => (
+                    <option key={option} value={option} disabled={index > currentMonthIndex}>
                       {option}
                     </option>
                   ))}
@@ -177,17 +465,36 @@ export function ReportsPage() {
               <>
                 <label className="reports-input-group">
                   <span>Start Date</span>
-                  <input type="date" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(event) => setStartDate(event.target.value)}
+                  />
                 </label>
 
                 <label className="reports-input-group">
                   <span>End Date</span>
-                  <input type="date" />
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(event) => setEndDate(event.target.value)}
+                  />
                 </label>
               </>
             )}
 
-            <button className="reports-action-button" type="button">
+            <button
+              className="reports-action-button"
+              type="button"
+              onClick={
+                filterType === 'custom'
+                  ? handleCustomSubmit
+                  : filterType === 'monthly'
+                    ? handleMonthlySubmit
+                    : undefined
+              }
+              disabled={filterType !== 'custom' && filterType !== 'monthly'}
+            >
               Submit
             </button>
           </div>
@@ -205,9 +512,17 @@ export function ReportsPage() {
             />
           </label>
 
-          <button className="reports-action-button reports-action-button--small" type="button">
-            Download All
-          </button>
+          <div className="reports-summary">
+            <span>Rows: {reportResponse?.row_count ?? reportRows.length}</span>
+            <span>Total Amount: {reportResponse?.total_amount ?? 0}</span>
+            <button
+              className="reports-action-button reports-action-button--small"
+              type="button"
+              onClick={handleDownloadAll}
+            >
+              Download All
+            </button>
+          </div>
         </div>
 
         <div className="reports-table-wrapper">
@@ -215,22 +530,28 @@ export function ReportsPage() {
             <thead>
               <tr>
                 <th>S. No.</th>
-                <th>Transaction ID</th>
-                <th>Amount</th>
-                <th>Date</th>
-                <th>Status</th>
+                {reportColumns.map((column) => (
+                  <th key={column.key}>{column.label}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {paginatedRows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.id}</td>
-                  <td>{row.transactionId}</td>
-                  <td>{row.amount}</td>
-                  <td>{row.date}</td>
-                  <td className={getStatusClass(row.status)}>{row.status}</td>
+              {paginatedRows.length ? (
+                paginatedRows.map((row, index) => (
+                  <tr key={`${row.Transaction_Id ?? 'row'}-${index}`}>
+                    <td>{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                    {reportColumns.map((column) => (
+                      <td key={column.key}>{String(row?.[column.key] ?? '-')}</td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={reportColumns.length + 1} className="reports-table__empty">
+                    No report data available.
+                  </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

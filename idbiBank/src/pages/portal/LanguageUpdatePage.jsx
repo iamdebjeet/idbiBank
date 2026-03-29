@@ -17,8 +17,7 @@ export function LanguageUpdatePage() {
   const [formValues, setFormValues] = useState(initialValues)
   const [touched, setTouched] = useState({})
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
-  const [isFetchingCurrentLanguage, setIsFetchingCurrentLanguage] = useState(false)
-  const [isFetchingLanguageOptions, setIsFetchingLanguageOptions] = useState(false)
+  const [isInitializingPage, setIsInitializingPage] = useState(false)
   const [isUpdatingLanguage, setIsUpdatingLanguage] = useState(false)
   const [languageOptions, setLanguageOptions] = useState([])
   const [successMessage, setSuccessMessage] = useState('Language update request initiated successfully')
@@ -61,141 +60,130 @@ export function LanguageUpdatePage() {
 
   useEffect(() => {
     let isMounted = true
-
-    const fetchCurrentLanguage = async () => {
+    const initializeLanguagePage = async () => {
       if (!formValues.deviceSerialNumber) {
         return
       }
 
-      if (fetchedCurrentLanguageForTidRef.current === formValues.deviceSerialNumber) {
+      if (
+        fetchedCurrentLanguageForTidRef.current === formValues.deviceSerialNumber &&
+        hasFetchedLanguageOptionsRef.current
+      ) {
         return
       }
 
-      fetchedCurrentLanguageForTidRef.current = formValues.deviceSerialNumber
+      if (isMounted) {
+        setIsInitializingPage(true)
+      }
+
+      let failedStep = 'current-language'
 
       try {
-        if (isMounted) {
-          setIsFetchingCurrentLanguage(true)
+        if (fetchedCurrentLanguageForTidRef.current !== formValues.deviceSerialNumber) {
+          fetchedCurrentLanguageForTidRef.current = formValues.deviceSerialNumber
+
+          const currentLanguageResponse = await apiRequest(
+            `${apiConfig.currentLanguageEndpoint}/${formValues.deviceSerialNumber}`,
+            {
+              method: 'GET',
+            },
+          )
+
+          if (!isMounted) {
+            return
+          }
+
+          console.log('[Language Update] current language response', currentLanguageResponse)
+          window.sessionStorage.setItem(
+            authStorageKeys.currentLanguage,
+            JSON.stringify(currentLanguageResponse),
+          )
+
+          const currentLanguageValue =
+            typeof currentLanguageResponse === 'string'
+              ? currentLanguageResponse
+              : currentLanguageResponse?.data?.current_language ??
+                currentLanguageResponse?.data?.language ??
+                currentLanguageResponse?.current_language ??
+                currentLanguageResponse?.language ??
+                currentLanguageResponse?.data ??
+                ''
+
+          setFormValues((current) => ({
+            ...current,
+            currentLanguage:
+              typeof currentLanguageValue === 'string'
+                ? currentLanguageValue
+                : String(currentLanguageValue ?? ''),
+          }))
         }
 
-        const response = await apiRequest(
-          `${apiConfig.currentLanguageEndpoint}/${formValues.deviceSerialNumber}`,
-          {
+        if (!hasFetchedLanguageOptionsRef.current) {
+          failedStep = 'language-options'
+          hasFetchedLanguageOptionsRef.current = true
+
+          const languageOptionsResponse = await apiRequest(apiConfig.fetchLanguageEndpoint, {
             method: 'GET',
-          },
-        )
+          })
 
-        if (!isMounted) {
-          return
+          if (!isMounted) {
+            return
+          }
+
+          console.log('[Language Update] fetch language response', languageOptionsResponse)
+          window.sessionStorage.setItem(
+            authStorageKeys.languageOptions,
+            JSON.stringify(languageOptionsResponse),
+          )
+
+          const rawLanguageList = Array.isArray(languageOptionsResponse?.data)
+            ? languageOptionsResponse.data
+            : Array.isArray(languageOptionsResponse)
+              ? languageOptionsResponse
+              : []
+
+          const languageList = rawLanguageList
+            .map((item) =>
+              typeof item === 'string'
+                ? item
+                : item?.language_name ?? item?.language ?? item?.name ?? '',
+            )
+            .filter(Boolean)
+
+          setLanguageOptions(languageList)
+        }
+      } catch (error) {
+        if (fetchedCurrentLanguageForTidRef.current === formValues.deviceSerialNumber) {
+          fetchedCurrentLanguageForTidRef.current = ''
         }
 
-        console.log('[Language Update] current language response', response)
-        window.sessionStorage.setItem(authStorageKeys.currentLanguage, JSON.stringify(response))
+        hasFetchedLanguageOptionsRef.current = false
 
-        const currentLanguageValue =
-          typeof response === 'string'
-            ? response
-            : response?.data ??
-              response?.current_language ??
-              response?.language ??
-              response?.data?.current_language ??
-              response?.data?.language ??
-              ''
-
-        setFormValues((current) => ({
-          ...current,
-          currentLanguage: currentLanguageValue,
-        }))
-      } catch (error) {
-        fetchedCurrentLanguageForTidRef.current = ''
-        console.error('[Language Update] Failed to fetch current language', error)
+        console.error('[Language Update] Failed during initialization', error)
         if (isMounted) {
           setSnackbarState({
             open: true,
-            message: 'Unable to fetch current launguage',
+            message:
+              failedStep === 'language-options'
+                ? 'Unable to fetch language list'
+                : 'Unable to fetch current launguage',
             autoClose: true,
             colorType: 'danger',
           })
         }
       } finally {
         if (isMounted) {
-          setIsFetchingCurrentLanguage(false)
+          setIsInitializingPage(false)
         }
       }
     }
 
-    fetchCurrentLanguage()
+    initializeLanguagePage()
 
     return () => {
       isMounted = false
     }
   }, [formValues.deviceSerialNumber])
-
-  useEffect(() => {
-    let isMounted = true
-
-    const fetchLanguageOptions = async () => {
-      if (hasFetchedLanguageOptionsRef.current) {
-        return
-      }
-
-      hasFetchedLanguageOptionsRef.current = true
-
-      try {
-        if (isMounted) {
-          setIsFetchingLanguageOptions(true)
-        }
-
-        const response = await apiRequest(apiConfig.fetchLanguageEndpoint, {
-          method: 'GET',
-        })
-
-        if (!isMounted) {
-          return
-        }
-
-        console.log('[Language Update] fetch language response', response)
-        window.sessionStorage.setItem(authStorageKeys.languageOptions, JSON.stringify(response))
-
-        const rawLanguageList = Array.isArray(response?.data)
-          ? response.data
-          : Array.isArray(response)
-            ? response
-            : []
-
-        const languageList = rawLanguageList
-          .map((item) =>
-            typeof item === 'string'
-              ? item
-              : item?.language_name ?? item?.language ?? item?.name ?? '',
-          )
-          .filter(Boolean)
-
-        setLanguageOptions(languageList)
-      } catch (error) {
-        hasFetchedLanguageOptionsRef.current = false
-        console.error('[Language Update] Failed to fetch language options', error)
-        if (isMounted) {
-          setSnackbarState({
-            open: true,
-            message: 'Unable to fetch language list',
-            autoClose: true,
-            colorType: 'danger',
-          })
-        }
-      } finally {
-        if (isMounted) {
-          setIsFetchingLanguageOptions(false)
-        }
-      }
-    }
-
-    fetchLanguageOptions()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
 
   const errors = useMemo(
     () => ({
@@ -275,7 +263,7 @@ export function LanguageUpdatePage() {
   return (
     <section className="portal-section language-update-page">
       <LoaderOverlay
-        open={isFetchingCurrentLanguage || isFetchingLanguageOptions || isUpdatingLanguage}
+        open={isInitializingPage || isUpdatingLanguage}
         text="IDBI Bank Loading........"
       />
       <Snackbar

@@ -2,6 +2,9 @@ export const apiConfig = {
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
   fetchUserDetailsEndpoint:
     import.meta.env.VITE_FETCH_USER_DETAILS_ENDPOINT ?? '/idbi/fetch/fetchById',
+  reportsQuerySubmitUserEndpoint:
+    import.meta.env.VITE_REPORTS_QUERY_SUBMIT_USER_ENDPOINT ??
+    'https://api-dev-stage.iserveu.online/idbi/sb/reports/querysubmit_user',
   currentLanguageEndpoint:
     import.meta.env.VITE_CURRENT_LANGUAGE_ENDPOINT ?? '/idbi/isu_soundbox/user_api/current_language',
   fetchLanguageEndpoint:
