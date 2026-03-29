@@ -1,15 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
-
-const languageOptions = [
-  'English',
-  'Hindi',
-  'Bengali',
-  'Odia',
-  'Marathi',
-  'Telegu',
-  'Tamil',
-]
+import { authStorageKeys } from '../../config/authConfig'
+import { apiConfig } from '../../config/apiConfig'
+import { LoaderOverlay } from '../../components/ui/LoaderOverlay'
+import { Snackbar } from '../../components/ui/Snackbar'
+import { apiRequest } from '../../services/apiClient'
 
 const initialValues = {
   vpaId: '',
@@ -22,6 +17,185 @@ export function LanguageUpdatePage() {
   const [formValues, setFormValues] = useState(initialValues)
   const [touched, setTouched] = useState({})
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [isFetchingCurrentLanguage, setIsFetchingCurrentLanguage] = useState(false)
+  const [isFetchingLanguageOptions, setIsFetchingLanguageOptions] = useState(false)
+  const [isUpdatingLanguage, setIsUpdatingLanguage] = useState(false)
+  const [languageOptions, setLanguageOptions] = useState([])
+  const [successMessage, setSuccessMessage] = useState('Language update request initiated successfully')
+  const [snackbarState, setSnackbarState] = useState({
+    open: false,
+    message: '',
+    autoClose: true,
+    colorType: 'danger',
+  })
+  const fetchedCurrentLanguageForTidRef = useRef('')
+  const hasFetchedLanguageOptionsRef = useRef(false)
+
+  useEffect(() => {
+    const storedUserDetails = window.sessionStorage.getItem(authStorageKeys.userDetails)
+    if (!storedUserDetails) {
+      return
+    }
+
+    try {
+      const parsedUserDetails = JSON.parse(storedUserDetails)
+      const firstUserDetails = Array.isArray(parsedUserDetails)
+        ? parsedUserDetails[0] ?? null
+        : parsedUserDetails?.data && Array.isArray(parsedUserDetails.data)
+          ? parsedUserDetails.data[0] ?? null
+          : parsedUserDetails
+
+      if (!firstUserDetails) {
+        return
+      }
+
+      setFormValues((current) => ({
+        ...current,
+        vpaId: firstUserDetails.vpa_id ?? current.vpaId,
+        deviceSerialNumber: firstUserDetails.serial_number ?? current.deviceSerialNumber,
+      }))
+    } catch (error) {
+      console.error('[Language Update] Failed to parse stored user details', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchCurrentLanguage = async () => {
+      if (!formValues.deviceSerialNumber) {
+        return
+      }
+
+      if (fetchedCurrentLanguageForTidRef.current === formValues.deviceSerialNumber) {
+        return
+      }
+
+      fetchedCurrentLanguageForTidRef.current = formValues.deviceSerialNumber
+
+      try {
+        if (isMounted) {
+          setIsFetchingCurrentLanguage(true)
+        }
+
+        const response = await apiRequest(
+          `${apiConfig.currentLanguageEndpoint}/${formValues.deviceSerialNumber}`,
+          {
+            method: 'GET',
+          },
+        )
+
+        if (!isMounted) {
+          return
+        }
+
+        console.log('[Language Update] current language response', response)
+        window.sessionStorage.setItem(authStorageKeys.currentLanguage, JSON.stringify(response))
+
+        const currentLanguageValue =
+          typeof response === 'string'
+            ? response
+            : response?.data ??
+              response?.current_language ??
+              response?.language ??
+              response?.data?.current_language ??
+              response?.data?.language ??
+              ''
+
+        setFormValues((current) => ({
+          ...current,
+          currentLanguage: currentLanguageValue,
+        }))
+      } catch (error) {
+        fetchedCurrentLanguageForTidRef.current = ''
+        console.error('[Language Update] Failed to fetch current language', error)
+        if (isMounted) {
+          setSnackbarState({
+            open: true,
+            message: 'Unable to fetch current launguage',
+            autoClose: true,
+            colorType: 'danger',
+          })
+        }
+      } finally {
+        if (isMounted) {
+          setIsFetchingCurrentLanguage(false)
+        }
+      }
+    }
+
+    fetchCurrentLanguage()
+
+    return () => {
+      isMounted = false
+    }
+  }, [formValues.deviceSerialNumber])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchLanguageOptions = async () => {
+      if (hasFetchedLanguageOptionsRef.current) {
+        return
+      }
+
+      hasFetchedLanguageOptionsRef.current = true
+
+      try {
+        if (isMounted) {
+          setIsFetchingLanguageOptions(true)
+        }
+
+        const response = await apiRequest(apiConfig.fetchLanguageEndpoint, {
+          method: 'GET',
+        })
+
+        if (!isMounted) {
+          return
+        }
+
+        console.log('[Language Update] fetch language response', response)
+        window.sessionStorage.setItem(authStorageKeys.languageOptions, JSON.stringify(response))
+
+        const rawLanguageList = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : []
+
+        const languageList = rawLanguageList
+          .map((item) =>
+            typeof item === 'string'
+              ? item
+              : item?.language_name ?? item?.language ?? item?.name ?? '',
+          )
+          .filter(Boolean)
+
+        setLanguageOptions(languageList)
+      } catch (error) {
+        hasFetchedLanguageOptionsRef.current = false
+        console.error('[Language Update] Failed to fetch language options', error)
+        if (isMounted) {
+          setSnackbarState({
+            open: true,
+            message: 'Unable to fetch language list',
+            autoClose: true,
+            colorType: 'danger',
+          })
+        }
+      } finally {
+        if (isMounted) {
+          setIsFetchingLanguageOptions(false)
+        }
+      }
+    }
+
+    fetchLanguageOptions()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const errors = useMemo(
     () => ({
@@ -56,7 +230,7 @@ export function LanguageUpdatePage() {
     setIsSuccessModalOpen(false)
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
     if (!isFormValid) {
@@ -69,12 +243,54 @@ export function LanguageUpdatePage() {
       return
     }
 
-    console.log('Language update form values:', formValues)
-    setIsSuccessModalOpen(true)
+    try {
+      setIsUpdatingLanguage(true)
+
+      const response = await apiRequest(apiConfig.updateLanguageEndpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          tid: formValues.deviceSerialNumber,
+          update_language: formValues.languageUpdate,
+        }),
+      })
+
+      console.log('[Language Update] update response', response)
+      window.sessionStorage.setItem(authStorageKeys.languageUpdateResponse, JSON.stringify(response))
+
+      setSuccessMessage(response?.statusDesc || response?.message || 'Language updated successfully')
+      setIsSuccessModalOpen(true)
+    } catch (error) {
+      console.error('[Language Update] Failed to update language', error)
+      setSnackbarState({
+        open: true,
+        message: 'unable to update language',
+        autoClose: true,
+        colorType: 'danger',
+      })
+    } finally {
+      setIsUpdatingLanguage(false)
+    }
   }
 
   return (
     <section className="portal-section language-update-page">
+      <LoaderOverlay
+        open={isFetchingCurrentLanguage || isFetchingLanguageOptions || isUpdatingLanguage}
+        text="IDBI Bank Loading........"
+      />
+      <Snackbar
+        open={snackbarState.open}
+        message={snackbarState.message}
+        autoClose={snackbarState.autoClose}
+        colorType={snackbarState.colorType}
+        onClose={() =>
+          setSnackbarState((current) => ({
+            ...current,
+            open: false,
+          }))
+        }
+      />
+
       <h1 className="portal-section__title">Language Update</h1>
 
       <form className="language-update-card" onSubmit={handleSubmit}>
@@ -87,6 +303,7 @@ export function LanguageUpdatePage() {
               onChange={handleChange('vpaId')}
               onBlur={handleBlur('vpaId')}
               placeholder="Enter VPA ID"
+              readOnly
             />
             {touched.vpaId && errors.vpaId ? (
               <small className="language-update-field__error">{errors.vpaId}</small>
@@ -101,6 +318,7 @@ export function LanguageUpdatePage() {
               onChange={handleChange('deviceSerialNumber')}
               onBlur={handleBlur('deviceSerialNumber')}
               placeholder="Enter device serial number"
+              readOnly
             />
             {touched.deviceSerialNumber && errors.deviceSerialNumber ? (
               <small className="language-update-field__error">
@@ -111,18 +329,13 @@ export function LanguageUpdatePage() {
 
           <label className="language-update-field">
             <span>Current Language</span>
-            <select
+            <input
+              type="text"
               value={formValues.currentLanguage}
-              onChange={handleChange('currentLanguage')}
               onBlur={handleBlur('currentLanguage')}
-            >
-              <option value="">Select Current Language</option>
-              {languageOptions.map((language) => (
-                <option key={language} value={language}>
-                  {language}
-                </option>
-              ))}
-            </select>
+              placeholder="Current language"
+              readOnly
+            />
             {touched.currentLanguage && errors.currentLanguage ? (
               <small className="language-update-field__error">{errors.currentLanguage}</small>
             ) : null}
@@ -172,9 +385,7 @@ export function LanguageUpdatePage() {
           >
             <div className="language-update-modal__body">
               <h2 id="language-update-success-title" className="language-update-modal__title">
-                Language update request
-                <br />
-                Initiated Successfully
+                {successMessage}
               </h2>
 
               <div className="language-update-modal__icon" aria-hidden="true">

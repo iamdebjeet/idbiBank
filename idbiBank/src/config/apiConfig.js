@@ -2,12 +2,21 @@ export const apiConfig = {
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
   fetchUserDetailsEndpoint:
     import.meta.env.VITE_FETCH_USER_DETAILS_ENDPOINT ?? '/idbi/fetch/fetchById',
+  currentLanguageEndpoint:
+    import.meta.env.VITE_CURRENT_LANGUAGE_ENDPOINT ?? '/idbi/isu_soundbox/user_api/current_language',
+  fetchLanguageEndpoint:
+    import.meta.env.VITE_FETCH_LANGUAGE_ENDPOINT ?? '/idbi/isu_soundbox/lang/fetch_language',
+  updateLanguageEndpoint:
+    import.meta.env.VITE_UPDATE_LANGUAGE_ENDPOINT ?? '/idbi/isu_soundbox/lang/update_language',
+  staticQrEndpoint:
+    import.meta.env.VITE_STATIC_QR_ENDPOINT ?? '/idbi/merchant/qr_convert_to_base64',
   userDetailsSerialNumber:
     import.meta.env.VITE_USER_DETAILS_SERIAL_NUMBER ?? '38241108350403',
   staticAuthorizationToken: import.meta.env.VITE_STATIC_AUTH_TOKEN ?? '',
   authorizationScheme: import.meta.env.VITE_STATIC_AUTH_SCHEME ?? 'Bearer',
   staticPassKey: import.meta.env.VITE_STATIC_PASS_KEY ?? '',
-  passKeyHeader: import.meta.env.VITE_PASS_KEY_HEADER ?? 'x-pass-key',
+  passKeyHeader: import.meta.env.VITE_PASS_KEY_HEADER ?? 'pass_key',
+  passKeyStorageKey: 'idbi-pass-key',
 }
 
 export function getStaticAuthorizationHeader() {
@@ -25,11 +34,23 @@ export function getStaticAuthorizationHeader() {
 }
 
 export function getStaticPassKeyHeader() {
-  if (!apiConfig.staticPassKey || !apiConfig.passKeyHeader) {
+  const storedPassKey =
+    window.sessionStorage.getItem(apiConfig.passKeyStorageKey) ?? apiConfig.staticPassKey
+
+  if (!storedPassKey || !apiConfig.passKeyHeader) {
     return {}
   }
 
   return {
-    [apiConfig.passKeyHeader]: apiConfig.staticPassKey,
+    [apiConfig.passKeyHeader]: storedPassKey,
   }
+}
+
+export function storePassKey(passKey) {
+  if (!passKey) {
+    window.sessionStorage.removeItem(apiConfig.passKeyStorageKey)
+    return
+  }
+
+  window.sessionStorage.setItem(apiConfig.passKeyStorageKey, passKey)
 }

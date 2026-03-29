@@ -1,14 +1,15 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { useAuth } from 'oidc-react'
 import './App.css'
+import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/portal/DashboardPage'
 import { LanguageUpdatePage } from './pages/portal/LanguageUpdatePage'
 import { PortalLayout } from './pages/portal/PortalLayout'
 import { QrDetailsPage } from './pages/portal/QrDetailsPage'
 import { ReportsPage } from './pages/portal/ReportsPage'
-import { getAuthSession } from './services/authStorage'
-import { loginWithPassword, logout as logoutUser } from './services/authService'
+import { logout as logoutUser, saveOidcUserSession } from './services/authService'
 
 function ProtectedRoute({ isLoggedIn, children }) {
   if (!isLoggedIn) {
@@ -19,21 +20,19 @@ function ProtectedRoute({ isLoggedIn, children }) {
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return Boolean(getAuthSession()?.accessToken)
-  })
+  const auth = useAuth()
   const navigate = useNavigate()
+  const isLoggedIn = Boolean(auth.userData?.access_token)
 
-  const handleLogin = async (credentials) => {
-    await loginWithPassword(credentials)
-    setIsLoggedIn(true)
-    navigate('/dashboard')
-  }
+  useEffect(() => {
+    if (auth.userData) {
+      saveOidcUserSession(auth.userData, { persist: false })
+    }
+  }, [auth.userData])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     logoutUser()
-    setIsLoggedIn(false)
-    navigate('/login')
+    await auth.signOutRedirect()
   }
 
   return (
@@ -47,9 +46,10 @@ function App() {
       <Route
         path="/login"
         element={
-          isLoggedIn ? <Navigate to="/dashboard" replace /> : <LoginPage onLogin={handleLogin} />
+          isLoggedIn ? <Navigate to="/dashboard" replace /> : <LoginPage />
         }
       />
+      <Route path="/redirected" element={<AuthCallbackPage />} />
 
       <Route
         element={

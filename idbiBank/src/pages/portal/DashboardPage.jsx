@@ -1,4 +1,9 @@
+import { useEffect, useState } from 'react'
+import { authStorageKeys } from '../../config/authConfig'
+import { apiConfig } from '../../config/apiConfig'
 import { StatCard } from '../../components/portal/StatCard'
+import { LoaderOverlay } from '../../components/ui/LoaderOverlay'
+import { apiRequest } from '../../services/apiClient'
 
 function IndentIcon() {
   return (
@@ -46,8 +51,68 @@ const stats = [
 ]
 
 export function DashboardPage() {
+  const [isFetchingUserDetails, setIsFetchingUserDetails] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchUserDetails = async () => {
+      const shouldFetchAfterRedirect =
+        window.sessionStorage.getItem(authStorageKeys.userDetailsFetchPending) === 'true'
+
+      if (!shouldFetchAfterRedirect) {
+        return
+      }
+
+      const storedProfile = window.sessionStorage.getItem(authStorageKeys.oidcProfile)
+      const profileData = storedProfile ? JSON.parse(storedProfile) : null
+      const mobileNumber = profileData?.user_name ?? ''
+
+      if (!mobileNumber) {
+        window.sessionStorage.removeItem(authStorageKeys.userDetailsFetchPending)
+        return
+      }
+
+      try {
+        if (isMounted) {
+          setIsFetchingUserDetails(true)
+        }
+
+        const response = await apiRequest(apiConfig.fetchUserDetailsEndpoint, {
+          method: 'POST',
+          body: JSON.stringify({
+            mobile_number: mobileNumber,
+          }),
+        })
+
+        if (!isMounted) {
+          return
+        }
+
+        console.log('[Dashboard] fetchById response', response)
+        window.sessionStorage.setItem(authStorageKeys.userDetails, JSON.stringify(response))
+        window.sessionStorage.removeItem(authStorageKeys.userDetailsFetchPending)
+      } catch (error) {
+        console.error('[Dashboard] Failed to fetch user details', error)
+        window.sessionStorage.removeItem(authStorageKeys.userDetailsFetchPending)
+      } finally {
+        if (isMounted) {
+          setIsFetchingUserDetails(false)
+        }
+      }
+    }
+
+    fetchUserDetails()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return (
     <section className="portal-section">
+      <LoaderOverlay open={isFetchingUserDetails} text="IDBI Bank Loading........" />
+
       <h1 className="portal-section__title">Dashboard</h1>
 
       <div className="stats-grid">

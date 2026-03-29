@@ -15,14 +15,14 @@ export function saveAuthSession(session, { persist = true } = {}) {
 }
 
 export function getAuthSession() {
-  const localSession = window.localStorage.getItem(authStorageKeys.local)
-  if (localSession) {
-    return JSON.parse(localSession)
-  }
-
   const temporarySession = window.sessionStorage.getItem(authStorageKeys.session)
   if (temporarySession) {
     return JSON.parse(temporarySession)
+  }
+
+  const localSession = window.localStorage.getItem(authStorageKeys.local)
+  if (localSession) {
+    return JSON.parse(localSession)
   }
 
   return null

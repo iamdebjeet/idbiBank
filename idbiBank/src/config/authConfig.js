@@ -42,4 +42,12 @@ export const authConfig = {
 export const authStorageKeys = {
   local: 'idbi-auth-session',
   session: 'idbi-auth-session-temporary',
+  oidcRawSession: 'idbi-oidc-token-response',
+  oidcProfile: 'idbi-oidc-profile-data',
+  userDetails: 'idbi-user-details-response',
+  userDetailsFetchPending: 'idbi-user-details-fetch-pending',
+  currentLanguage: 'idbi-current-language-response',
+  languageOptions: 'idbi-language-options-response',
+  languageUpdateResponse: 'idbi-language-update-response',
+  staticQrResponse: 'idbi-static-qr-response',
 }

@@ -144,6 +144,39 @@ function normalizeTokenResponse(tokenResponse) {
   }
 }
 
+export function saveOidcUserSession(userData, { persist = true } = {}) {
+  if (!userData?.access_token) {
+    clearAuthSession()
+    window.sessionStorage.removeItem(authStorageKeys.oidcRawSession)
+    window.sessionStorage.removeItem(authStorageKeys.oidcProfile)
+    return null
+  }
+
+  window.sessionStorage.setItem(authStorageKeys.oidcRawSession, JSON.stringify(userData))
+  window.sessionStorage.setItem(
+    authStorageKeys.oidcProfile,
+    JSON.stringify(userData.profile ?? decodeJwtPayload(userData.access_token) ?? {}),
+  )
+  console.log('[OIDC] Token response', userData)
+
+  const session = {
+    accessToken: userData.access_token,
+    refreshToken: userData.refresh_token ?? '',
+    idToken: userData.id_token ?? '',
+    tokenType: userData.token_type ?? 'Bearer',
+    scope: userData.scope ?? getScopeValue(),
+    expiresIn: userData.expires_in ?? null,
+    accessTokenExpirationDate:
+      typeof userData.expires_at === 'number'
+        ? new Date(userData.expires_at * 1000).toISOString()
+        : null,
+    tokenPayload: userData.profile ?? decodeJwtPayload(userData.access_token),
+  }
+
+  saveAuthSession(session, { persist })
+  return session
+}
+
 async function parseErrorResponse(response) {
   try {
     const data = await response.json()
@@ -171,6 +204,14 @@ function buildLoginRequestBody({ username, password }) {
   })
 
   if (authConfig.grantType === 'authorization_code') {
+    if (authConfig.authorizationCode) {
+      requestBody.set('code', authConfig.authorizationCode)
+    }
+
+    if (authConfig.codeVerifier) {
+      requestBody.set('code_verifier', authConfig.codeVerifier)
+    }
+
     return requestBody
   }
 
@@ -302,13 +343,15 @@ export async function refreshAccessToken() {
 
 export function logout() {
   clearAuthSession()
+  window.sessionStorage.removeItem(authStorageKeys.oidcRawSession)
+  window.sessionStorage.removeItem(authStorageKeys.oidcProfile)
 }
 
 export function getAuthorizationHeader() {
   const session = getAuthSession()
 
   if (!session?.accessToken) {
-    return getStaticAuthorizationHeader()
+    return authConfig.useStaticAuth ? getStaticAuthorizationHeader() : {}
   }
 
   return {

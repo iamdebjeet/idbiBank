@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button } from '../ui/Button'
-import { Snackbar } from '../ui/Snackbar'
+import { authStorageKeys } from '../../config/authConfig'
 import { apiConfig } from '../../config/apiConfig'
+import { Button } from '../ui/Button'
+import { LoaderOverlay } from '../ui/LoaderOverlay'
+import { Snackbar } from '../ui/Snackbar'
 import { apiRequest } from '../../services/apiClient'
 
 function LogoutIcon() {
@@ -93,19 +95,32 @@ export function PortalTopNav({ isSidebarCollapsed, onToggleSidebar, onLogout }) 
     })
   }
 
-  const detailSource =
-    profileDetails?.data && typeof profileDetails.data === 'object' ? profileDetails.data : profileDetails
+  const detailSource = Array.isArray(profileDetails)
+    ? profileDetails[0] ?? null
+    : profileDetails?.data && Array.isArray(profileDetails.data)
+      ? profileDetails.data[0] ?? null
+      : profileDetails?.data && typeof profileDetails.data === 'object'
+        ? profileDetails.data
+        : profileDetails
   const detailEntries = getDisplayEntries(detailSource)
 
   const handleViewDetails = async () => {
+    const storedProfile = window.sessionStorage.getItem(authStorageKeys.oidcProfile)
+    const profileData = storedProfile ? JSON.parse(storedProfile) : null
+    const mobileNumber = profileData?.user_name ?? ''
+
     setIsProfileMenuOpen(false)
     setIsFetchingProfileDetails(true)
 
     try {
+      if (!mobileNumber) {
+        throw new Error('Missing user_name in stored profile data.')
+      }
+
       const response = await apiRequest(apiConfig.fetchUserDetailsEndpoint, {
         method: 'POST',
         body: JSON.stringify({
-          serial_number: apiConfig.userDetailsSerialNumber,
+          mobile_number: mobileNumber,
         }),
       })
 
@@ -132,6 +147,8 @@ export function PortalTopNav({ isSidebarCollapsed, onToggleSidebar, onLogout }) 
 
   return (
     <header className="portal-topnav">
+      <LoaderOverlay open={isFetchingProfileDetails} text="IDBI Bank Loading........" />
+
       <Snackbar
         open={snackbarState.open}
         message={snackbarState.message}

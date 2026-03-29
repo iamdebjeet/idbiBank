@@ -1,5 +1,6 @@
 import { getAuthorizationHeader, refreshAccessToken } from './authService'
 import { apiConfig, getStaticPassKeyHeader } from '../config/apiConfig'
+import { decodeApiResponse, encryptRequestData } from './payloadCrypto'
 
 async function parseJsonSafely(response) {
   const contentType = response.headers.get('content-type') ?? ''
@@ -11,10 +12,20 @@ async function parseJsonSafely(response) {
   return response.json()
 }
 
+function shouldEncryptBody(options = {}) {
+  const method = (options.method ?? 'GET').toUpperCase()
+  return method !== 'GET' && method !== 'HEAD' && options.body != null
+}
+
 async function buildRequestOptions(options = {}) {
   const headers = new Headers(options.headers ?? {})
   const authHeader = getAuthorizationHeader()
   const passKeyHeader = getStaticPassKeyHeader()
+  const body = shouldEncryptBody(options)
+    ? JSON.stringify({
+        RequestData: encryptRequestData(options.body),
+      })
+    : options.body
 
   Object.entries(authHeader).forEach(([key, value]) => {
     headers.set(key, value)
@@ -28,8 +39,13 @@ async function buildRequestOptions(options = {}) {
     headers.set('Content-Type', 'application/json')
   }
 
+  if (!headers.has('Content-Type') && shouldEncryptBody(options)) {
+    headers.set('Content-Type', 'application/json')
+  }
+
   return {
     ...options,
+    body,
     headers,
   }
 }
@@ -56,7 +72,8 @@ export async function apiRequest(url, options = {}) {
     }
   }
 
-  const data = await parseJsonSafely(response)
+  const rawData = await parseJsonSafely(response)
+  const data = decodeApiResponse(rawData)
 
   if (!response.ok) {
     throw new Error(data?.message || `API request failed with status ${response.status}`)

@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { authStorageKeys } from '../../config/authConfig'
+import { apiConfig } from '../../config/apiConfig'
+import { LoaderOverlay } from '../../components/ui/LoaderOverlay'
 import { Snackbar } from '../../components/ui/Snackbar'
+import { apiRequest } from '../../services/apiClient'
 
 const paymentApps = ['CRED', 'navi', 'paytm']
 const DYNAMIC_QR_VALIDITY_SECONDS = 60
@@ -19,8 +23,10 @@ export function QrDetailsPage() {
   const [qrType, setQrType] = useState('static')
   const [amountInput, setAmountInput] = useState('')
   const [generatedAmount, setGeneratedAmount] = useState('')
+  const [showStaticQr, setShowStaticQr] = useState(false)
   const [showDynamicQr, setShowDynamicQr] = useState(false)
   const [secondsRemaining, setSecondsRemaining] = useState(DYNAMIC_QR_VALIDITY_SECONDS)
+  const [isFetchingStaticQr, setIsFetchingStaticQr] = useState(false)
   const [snackbarState, setSnackbarState] = useState({
     open: false,
     message: '',
@@ -34,6 +40,54 @@ export function QrDetailsPage() {
   const qrTitle = useMemo(() => {
     return qrType === 'dynamic' ? 'Amount to be Collected' : 'Select The Type Of QR'
   }, [qrType])
+
+  const handleStaticSubmit = async () => {
+    const storedUserDetails = window.sessionStorage.getItem(authStorageKeys.userDetails)
+    const parsedUserDetails = storedUserDetails ? JSON.parse(storedUserDetails) : null
+    const firstUserDetails = Array.isArray(parsedUserDetails)
+      ? parsedUserDetails[0] ?? null
+      : parsedUserDetails?.data && Array.isArray(parsedUserDetails.data)
+        ? parsedUserDetails.data[0] ?? null
+        : parsedUserDetails
+    const qrString = firstUserDetails?.qr_string ?? ''
+
+    if (!qrString) {
+      setSnackbarState({
+        open: true,
+        message: 'Unable to fetch static QR',
+        autoClose: true,
+        colorType: 'danger',
+      })
+      setShowStaticQr(false)
+      return
+    }
+
+    try {
+      setIsFetchingStaticQr(true)
+
+      const response = await apiRequest(apiConfig.staticQrEndpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          qrString,
+        }),
+      })
+
+      console.log('[QR Details] static QR response', response)
+      window.sessionStorage.setItem(authStorageKeys.staticQrResponse, JSON.stringify(response))
+      setShowStaticQr(true)
+    } catch (error) {
+      console.error('[QR Details] Failed to fetch static QR', error)
+      setSnackbarState({
+        open: true,
+        message: 'Unable to fetch static QR',
+        autoClose: true,
+        colorType: 'danger',
+      })
+      setShowStaticQr(false)
+    } finally {
+      setIsFetchingStaticQr(false)
+    }
+  }
 
   useEffect(() => {
     if (qrType !== 'dynamic' || !showDynamicQr) {
@@ -93,6 +147,7 @@ export function QrDetailsPage() {
 
   return (
     <section className="portal-section qr-details-page">
+      <LoaderOverlay open={isFetchingStaticQr} text="IDBI Bank Loading........" />
       <Snackbar
         open={snackbarState.open}
         message={snackbarState.message}
@@ -119,7 +174,10 @@ export function QrDetailsPage() {
                   checked={qrType === 'static'}
                   name="qr-type"
                   type="radio"
-                  onChange={() => setQrType('static')}
+                  onChange={() => {
+                    setQrType('static')
+                    setShowDynamicQr(false)
+                  }}
                 />
                 <span>Static</span>
               </label>
@@ -129,7 +187,10 @@ export function QrDetailsPage() {
                   checked={qrType === 'dynamic'}
                   name="qr-type"
                   type="radio"
-                  onChange={() => setQrType('dynamic')}
+                  onChange={() => {
+                    setQrType('dynamic')
+                    setShowStaticQr(false)
+                  }}
                 />
                 <span>Dynamic</span>
               </label>
@@ -137,7 +198,7 @@ export function QrDetailsPage() {
           </div>
 
           {qrType === 'static' ? (
-            <button className="reports-action-button" type="button">
+            <button className="reports-action-button" type="button" onClick={handleStaticSubmit}>
               Submit
             </button>
           ) : null}
@@ -176,7 +237,7 @@ export function QrDetailsPage() {
         ) : null}
       </div>
 
-      {qrType === 'static' || showDynamicQr ? (
+      {(qrType === 'static' && showStaticQr) || showDynamicQr ? (
         <div className="qr-preview-card">
         <div className="qr-preview-card__inner">
           <p className="qr-preview-card__eyebrow">{qrTitle}</p>
